@@ -1463,6 +1463,9 @@ def transform_databases_tables_partitions(sc, sql_context, hive_metastore, datab
 def transform_tables_to_hive_sql(sc, sql_context, hive_metastore, databases, tables, partitions):
     tableName = tables.select('item').collect()
     print(str(tableName))
+    #to do, using pyspark
+    #convert the resource/tables/tableSample.json to hiveSql
+
 
 def validate_options_in_mode(options, mode, required_options, not_allowed_options):
     for option in required_options:
