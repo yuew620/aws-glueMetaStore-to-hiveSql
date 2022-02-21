@@ -1,0 +1,1 @@
+{"type":"database","item":{"description":"Default Hive database","locationUri":"hdfs://ha-nn-uri/user/hive/warehouse","name":"default"}}
