@@ -62,8 +62,8 @@ def get_partitions(info):
 
 if __name__ == "__main__":
 
-    f = open('/Users/yyuewang/Documents/code/aws-glue-metastore-to-hivesql/resource/tables/sampleTable.json', 'r')
-    outF = open('/Users/yyuewang/Documents/code/aws-glue-metastore-to-hivesql/resource/tables/Output.txt', 'w')
+    f = open('/Users/***/Documents/code/aws-glue-metastore-to-hivesql/resource/tables/sampleTable.json', 'r')
+    outF = open('/Users/***/Documents/code/aws-glue-metastore-to-hivesql/resource/tables/Output.txt', 'w')
     lines = f.readlines()
     for line in lines:
         content = convert(line)
