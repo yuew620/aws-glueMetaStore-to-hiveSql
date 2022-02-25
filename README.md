@@ -50,6 +50,7 @@ please user define the transform python scripty before use it
 Below are instructions for using each of the migration workflows described above.
 #### Migrate from AWS Glue to Hive through Amazon S3 Objects
 
+   see the details in Migrate from AWS Glue to Hive through Amazon S3 Objects in reference below.
 1. Create an AWS Glue ETL job similar to the one described in the Direct Migration
    instructions above. Since the destination is now an S3 bucket instead of a Hive metastore,
    no connections are required. In the job, add the following parameters:
