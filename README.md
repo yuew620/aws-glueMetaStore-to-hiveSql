@@ -5,45 +5,22 @@ We recommend you to test and modify it for your data and use-case.
 
 ### Introduction
 
-The provided scripts migrate metadata between Hive metastore and AWS Glue Data Catalog. The following scenarios are
-supported.
-
-
-#### Hive Metastore to an AWS Glue Data Catalog
-
- - **Direct Migration**: Set up an AWS Glue ETL job which extracts metadata
-   from your Hive metastore (MySQL) and loads it into your AWS Glue Data
-   Catalog.  This method requires an AWS Glue connection to the Hive metastore
-   as a JDBC source. An ETL script is provided to extract metadata from the
-   Hive metastore and write it to AWS Glue Data Catalog.
-
- - **Migration using Amazon S3 Objects**: Two ETL jobs are used. The first job extracts 
-   your database, table, and partition metadata from your Hive metastore into Amazon S3.
-   This job can be run either as an AWS Glue job or on a cluster with Spark installed. 
-   The second is an AWS Glue job that loads the metadata from S3 into the AWS Glue Data Catalog.
-
+The provided scripts migrate metadata from  AWS Glue Data Catalog to Hive metastore
 
 #### AWS Glue Data Catalog to Hive Metastore
 
- - **Direct Migration**: An ETL job extracts metadata from specified databases
-   in the AWS Glue Data Catalog and loads it into a Hive metastore. This job is run
-   by AWS Glue, and requires an AWS Glue connection to the Hive metastore
-   as a JDBC source.
- - **Migration using Amazon S3 Objects**: Two ETL jobs are used. The first is an AWS Glue job that extracts
+
+ - **Migration using Amazon S3 Objects**:  
+
+   First is an AWS Glue job that extracts
    metadata from specified databases in the AWS Glue Data Catalog and then writes it as S3 objects.
-   The second job loads the S3 objects into a Hive Metastore. The second job can be run either 
-   as an AWS Glue job or on a cluster with Spark installed.
+  
+   Second  use python script transformToHiveSql.py to transform S3 objects to Hive SQL.
+   
+   Last run the Hive SQL using Hive beeline or Hive cli.
 
-
-#### AWS Glue Data Catalog to another AWS Glue Data Catalog
-
-- **Migration using Amazon S3 Objects**: Two AWS Glue jobs ETL jobs are run. The first
-   extracts metadata from specified databases in an AWS Glue Data Catalog and loads it
-   into S3. The second loads data from S3 into an AWS Glue Data Catalog. This is the
-   only way to migrate between Data Catalogs in different accounts. It combines the
-   workflow for AWS Glue to Hive using S3 with the workflow for Hive to AWS Glue
-   using S3.
-
+** Caution Hive SQL maybe changed depending on the Hive version, and there maybe lack of some properties for sepecial parameters.
+please user define the transform python scripty before use it
 
 #### Limitations
 
@@ -71,14 +48,39 @@ supported.
 ## Instructions
 
 Below are instructions for using each of the migration workflows described above.
+#### Migrate from AWS Glue to Hive through Amazon S3 Objects
+
+1. Create an AWS Glue ETL job similar to the one described in the Direct Migration
+   instructions above. Since the destination is now an S3 bucket instead of a Hive metastore,
+   no connections are required. In the job, add the following parameters:
+
+   - `--mode` set to `to-s3`, which means the migration is to S3.
+   - `--region` the AWS region for Glue Data Catalog, for example, `us-east-1`.
+     You can find a list of Glue supported regions here: http://docs.aws.amazon.com/general/latest/gr/rande.html#glue_region.
+     If not provided, `us-east-1` is used as default.
+   - `--database-names` set to a semi-colon(;) separated list of
+     database names to export from Data Catalog.
+   - `--output-path` set to the S3 destination path.
+
+2. use the `transformToHiveSql.py`  script to transform s3 file to hive SQL 
+
+
+3. run the hive sql in new hive environment.
+
+
+reference
+
+## Instructions
+
+Below are instructions for using each of the migration workflows described above.
 
 #### Migrate Directly from Hive to AWS Glue
 
-1. Set up AWS Glue as described in the following steps: 
+1. Set up AWS Glue as described in the following steps:
    - [Set up IAM permissions for AWS Glue](http://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html).
    - [Set up VPC endpoints for Amazon S3](http://docs.aws.amazon.com/glue/latest/dg/vpc-endpoints-s3.html).
    - [Set up VPC to connect to JDBC Data Stores](http://docs.aws.amazon.com/glue/latest/dg/setup-vpc-for-glue-access.html).
-     If the Hive metastore is in a local database in the EMR master instance, just configure 
+     If the Hive metastore is in a local database in the EMR master instance, just configure
      the EMR VPC subnet and EMR master security group, similar to the RDS configuration.
    - [Set up DNS in your VPC](http://docs.aws.amazon.com/glue/latest/dg/set-up-vpc-dns.html).
 
@@ -122,12 +124,12 @@ Below are instructions for using each of the migration workflows described above
    the script to a bucket in the same AWS region where your job runs.
 
 6. Create a job on the AWS Glue console to extract metadata from your Hive
-   metastore to migrate it to AWS Glue Data Catalog. Define the job with 
+   metastore to migrate it to AWS Glue Data Catalog. Define the job with
    **An existing script that you provide** and the following properties:
-    
+
    - **Script path where the script is stored** - S3 path to `import_into_datacatalog.py`
    - **Python library path** - S3 path to `hive_metastore_migration.py`
-   
+
    Also add the following job parameters. These parameters are defined in the source code of `import_into_datacatalog.py`.
 
    - `--mode` set to `from-jdbc`, which means the migration is from a JDBC
@@ -152,7 +154,7 @@ Below are instructions for using each of the migration workflows described above
      the empty string.
 
    In the Connections page, add the Hive metastore connection you created. The same connection must
-   be specified both here and in the `--connection-name` argument. 
+   be specified both here and in the `--connection-name` argument.
    Finally, review the job and create it.
 
 7. Run the job on demand with the AWS Glue console. When the job is finished, the metadata
@@ -178,10 +180,10 @@ as an Glue ETL job, if AWS Glue can directly connect to your Hive metastore.
    all worker nodes. Include the jar in the Spark driver class path as well
    as with the `--jars` and `--driver-class-path` parameters in the `spark-submit` command. You can download
    the MySql connector [here at MySql.com](https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.42.tar.gz).
-   
+
    If you use EMR to do this configuration, you can run the EMR bootstrap
    script `emr_bootstrap_action.sh` included in the `shell` folder, and
-   then provide `--jars /usr/lib/hadoop/mysql-connector-java-5.1.42-bin.jar` and 
+   then provide `--jars /usr/lib/hadoop/mysql-connector-java-5.1.42-bin.jar` and
    `--driver-class-path <spark-default-driver-classpath>:/usr/lib/hadoop/mysql-connector-java-5.1.42-bin.jar`
    in the spark-submit script. See [EMR documentation](http://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-bootstrap.html)
    for how to run Bootstrap script on EMR.
@@ -200,10 +202,10 @@ as an Glue ETL job, if AWS Glue can directly connect to your Hive metastore.
      to an S3 location manually. If it is an S3 path, you need to make sure that the Spark
      cluster has EMRFS library in its class path. The script will export the metadata to a
      subdirectory of the output-path you provided.
-     
-   - `--database-prefix` and `--table-prefix` (optional) to set a string prefix that is applied to the 
-     database and table names. They are empty by default. 
-     
+
+   - `--database-prefix` and `--table-prefix` (optional) to set a string prefix that is applied to the
+     database and table names. They are empty by default.
+
    - Example spark-submit command to migrate Hive metastore to S3, tested on EMR-4.7.1:
     ```bash
     MYSQL_JAR_PATH=/usr/lib/hadoop/mysql-connector-java-5.1.42-bin.jar
@@ -219,10 +221,10 @@ as an Glue ETL job, if AWS Glue can directly connect to your Hive metastore.
       --table-prefix myHiveMetastore_ \
       --output-path s3://mybucket/myfolder/
     ```
-    
-    - If the job finishes successfully, it creates 3 sub-folders in the S3 output path you
-    specified named "databases", "tables" and "partitions". These paths will be used in the next step.
-    
+
+   - If the job finishes successfully, it creates 3 sub-folders in the S3 output path you
+     specified named "databases", "tables" and "partitions". These paths will be used in the next step.
+
 3. Upload these ETL job scripts to an S3 bucket:
 
        import_into_datacatalog.py
@@ -230,7 +232,7 @@ as an Glue ETL job, if AWS Glue can directly connect to your Hive metastore.
 
 4. Create a job on the AWS Glue console to extract metadata from your Hive
    metastore and write it to AWS Glue Data Catalog. Define the job with **An existing script that you provide** and the following properties:
-    
+
    - **Script path where the script is stored** - S3 path to `import_into_datacatalog.py`
    - **Python library path** - S3 path to `hive_metastore_migration.py`
 
@@ -316,21 +318,21 @@ as an Glue ETL job, if AWS Glue can directly connect to your Hive metastore.
 
 3. Create a job on the AWS Glue console to extract metadata from the AWS Glue Data Catalog to the JDBC Hive metastore.
    Define the job with **An existing script that you provide** and the following properties:
-    
+
    - **Script path where the script is stored** - S3 path to `export_from_datacatalog.py`
    - **Python library path** - S3 path to `hive_metastore_migration.py`
 
    Add the following parameters.
-   
+
    - `--mode` set to `to-jdbc`, which means the migration is
-      directly to a jdbc Hive Metastore
+     directly to a jdbc Hive Metastore
    - `--connection-name` set to the name of the AWS Glue connection
-      you created to point to the Hive metastore. It is the destination of the migration.
+     you created to point to the Hive metastore. It is the destination of the migration.
    - `--region` the AWS region for Glue Data Catalog, for example, `us-east-1`.
      You can find a list of Glue supported regions here: http://docs.aws.amazon.com/general/latest/gr/rande.html#glue_region.
      If not provided, `us-east-1` is used as default.
    - `--database-names` set to a semi-colon(;) separated list of
-      database names to export from Data Catalog.
+     database names to export from Data Catalog.
 
    In the Connections page, add the Hive metastore connection you created:
 
@@ -352,7 +354,7 @@ as an Glue ETL job, if AWS Glue can directly connect to your Hive metastore.
      You can find a list of Glue supported regions here: http://docs.aws.amazon.com/general/latest/gr/rande.html#glue_region.
      If not provided, `us-east-1` is used as default.
    - `--database-names` set to a semi-colon(;) separated list of
-      database names to export from Data Catalog.
+     database names to export from Data Catalog.
    - `--output-path` set to the S3 destination path.
 
 3. Submit the `hive_metastore_migration.py` Spark script to your Spark cluster.
@@ -379,20 +381,20 @@ as an Glue ETL job, if AWS Glue can directly connect to your Hive metastore.
 
          s3://gluemigrationbucket/export_output/<year-month-day-hour-minute-seconds>/
 
-    	 
+
 #### AWS Glue Data Catalog to another AWS Glue Data Catalog
- 
+
 You can migrate (copy) metadata from the Data Catalog in one account to another. The steps are:
- 
+
 1. Enable cross-account access for an S3 bucket so that both source and target accounts can access it. See  
-   [the Amazon S3 documenation](http://docs.aws.amazon.com/AmazonS3/latest/dev/example-bucket-policies.html#example-bucket-policies-use-case-1) 
+   [the Amazon S3 documenation](http://docs.aws.amazon.com/AmazonS3/latest/dev/example-bucket-policies.html#example-bucket-policies-use-case-1)
    for S3 cross-account access configuration.
-   
+
 2. Upload the the following scripts to an S3 bucket accessible from the source AWS account:
 
        export_from_datacatalog.py
        hive_metastore_migration.py
-       
+
 3. Upload the the following scripts to an S3 bucket accessible from the target AWS account to be updated:
 
        import_into_datacatalog.py
@@ -400,31 +402,31 @@ You can migrate (copy) metadata from the Data Catalog in one account to another.
 
 4. In the source AWS account, create a job on the AWS Glue console to extract metadata from the AWS Glue Data Catalog to S3.
    Define the job with **An existing script that you provide** and the following properties:
-    
+
    - **Script path where the script is stored** - S3 path to `export_from_datacatalog.py`
    - **Python library path** - S3 path to `hive_metastore_migration.py`
 
-       
-   Add the following parameters:
- 
-   - `--mode` set to `to-s3`, which means the migration is to S3.
-   - `--region` the AWS region for Glue Data Catalog, for example, `us-east-1`.
-     You can find a list of Glue supported regions here: http://docs.aws.amazon.com/general/latest/gr/rande.html#glue_region.
-     If not provided, `us-east-1` is used as default.
-   - `--database-names` set to a semi-colon(;) separated list of
-      database names to export from Data Catalog.
-   - `--output-path` set to the S3 destination path that you configured with **cross-account access**.
- 
-   The job will create `databases`, `partitions`, and `tables` folders in the S3 output folder you choose.
+
+Add the following parameters:
+
+- `--mode` set to `to-s3`, which means the migration is to S3.
+- `--region` the AWS region for Glue Data Catalog, for example, `us-east-1`.
+  You can find a list of Glue supported regions here: http://docs.aws.amazon.com/general/latest/gr/rande.html#glue_region.
+  If not provided, `us-east-1` is used as default.
+- `--database-names` set to a semi-colon(;) separated list of
+  database names to export from Data Catalog.
+- `--output-path` set to the S3 destination path that you configured with **cross-account access**.
+
+The job will create `databases`, `partitions`, and `tables` folders in the S3 output folder you choose.
 
 5. In the target AWS account, create a job on the AWS Glue console to import metadata to the target AWS Glue Data Catalog.
    Define the job with **An existing script that you provide** and the following properties:
-    
+
    - **Script path where the script is stored** - S3 path to `import_into_datacatalog.py`
    - **Python library path** - S3 path to `hive_metastore_migration.py`
-   
+
    Add the following parameters.
- 
+
    - `--mode` set to `from-s3`
    - `--region` the AWS region for Glue Data Catalog, for example, `us-east-1`.
      You can find a list of Glue supported regions here: http://docs.aws.amazon.com/general/latest/gr/rande.html#glue_region.
@@ -432,6 +434,6 @@ You can migrate (copy) metadata from the Data Catalog in one account to another.
    - `--database-input-path` set to the S3 path containing only databases.
    - `--table-input-path` set to the S3 path containing only tables.
    - `--partition-input-path` set to the S3 path containing only partitions.
-   
-6. (Optional) Manually delete the temporary files generated in the S3 folder. Also, remember to revoke the 
+
+6. (Optional) Manually delete the temporary files generated in the S3 folder. Also, remember to revoke the
    cross-account access if it's not needed anymore.          
